@@ -94,4 +94,90 @@ how to install the kubernetes controller manager
 - you download the binary from the kubernetes website  
 - by default, all controllers are installed 
 
+## Kube-scheduler 
+- decides which pod goes where based on , doesn't actually place the pod 
+
+How do you install the kube-scheduler 
+- install the binary from the kubernetes website 
+- extract it, run it as a service and specify the configuration 
+
+using kubeadm 
+- it will deploy it as a pod in the kube-system namespace
+
+
+## Kubelet 
+- the agent that runs on the nodes in the cluster 
+- registers the node with the k8s cluster 
+- creates pods on the nodes 
+- reports back to the kube api-server 
+
+
+using kubeadm 
+- does not automatically create the kubelet 
+- kubelet must always be manually installed 
+
+
+## Kube proxy 
+- all pods in a kubernetes cluster can talk to each other, this is because of a pod networking solution
+
+
+
+## Replica Sets 
+controllers: brains behind kubernetes, they monitor objects and respond accordingly 
+
+what is a replication controller?
+- helps us run more than one single pod in a kubernetes cluster so we can achieve HA 
+- you can use a replication controller with one pod, it will help respond to failures 
+- spans across multiple nodes, helps to scale our application and provide load balancing 
+
+Replication controller and replica set
+
+- replication controller: the old way of setting up replication
+- replica set: the new way to setup replication
+
+example of replica controller: 
+
+```
+apiVersion: v1 
+kind: ReplicationController
+metadata:
+  name: myapp-rc
+
+spec:
+  replicas: 3
+  template:
+    metadata:
+      name: mypod
+      labels:
+        app: fronted
+    spec:
+      containers: 
+        - name: mypod 
+          image: nginx
+```
+
+example of a replica set: 
+
+```
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: myapp-rs
+
+spec:
+  replicas: 3 
+  selector:
+    matchLabels:
+      name: mypod
+  template:
+    metadata:
+      name: mypod
+    spec:
+      containers:
+        - name: mypod 
+          image: nginx 
+```
+
+
+
 
