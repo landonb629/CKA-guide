@@ -5,4 +5,8 @@
 
 2. create a pod using the nginx image 
 
-3. 
+## Labs - Scheduling section 
+
+1. create your minikube cluster without the scheduler 
+    - create an nginx pod, check and see what state its in 
+    - manually schedule the nginx pod using the nodeName attribute in the pod file 
