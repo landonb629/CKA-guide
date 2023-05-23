@@ -142,3 +142,50 @@ operator options
 Node affinity types:
 - requiredDuringSchedulingIgnoredDuringExecution: pod will not be scheduled if the node affinity cannot be found 
 - prefferedDuringSchedulingIgnoredDuringExecution: pod can still be scheduled 
+
+
+## Resource Requirements 
+
+resource requests: the minimum amount of resources that are requested by a pod 
+- by default, containers have no limit on a pod, this can exhaust other pods 
+
+How to create a resource request??
+- add this to your container definition
+
+```
+containers:
+  - name: test
+    resources:
+      requests: 
+        memory: "2Gi"
+        cpu: 2
+```
+
+CPU: 1 cpu is equivalent to the following 
+  - 1 AWS vCPU 
+  - 1 Azure vCPU
+
+Memory:
+  - 1G = 1,000,000,000 bytes 
+  - 1Gi = 1,073,741,824 bytes 
+
+Resource limits: this will limit the amount of memory and CPU that a container can consume 
+- system cannot use more CPU than its limit
+- but a pod can consume more memory, this will result in the pod being terminated with an OOM error
+
+```
+resources:
+  requests:
+    memory:
+    cpu:
+  limits:
+    memory:
+    cpu: 
+```
+
+LimitRange:
+ - an object created at the namespace level 
+ - this limits the amount of resources that new pods can gain 
+
+quotas:
+  - namespace level object to set hard limits for requests and limits out of all pods in a cluster
