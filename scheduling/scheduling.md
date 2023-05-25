@@ -189,3 +189,94 @@ LimitRange:
 
 quotas:
   - namespace level object to set hard limits for requests and limits out of all pods in a cluster
+
+
+## DaemonSets 
+- runs one copy of your pod on each node in the cluster 
+
+use cases:
+  - monitoring agents or log collectors 
+  - kube-proxy
+  - networking: tools that need to be deployed on each node 
+
+how to create a daemonset
+
+```
+apiVersion:
+kind:
+metadata:
+spec:
+  selector:
+    matchLabels:
+  template:
+    metadata:
+      labels:
+    spec:
+      containers:
+        - name:
+          image: 
+```
+## Static pods 
+- you can only create static pods, you cannot create replicasets or deployments 
+- pods managed directly by the kubelet daemon, the API server cannot see these pods 
+- the kubelet watches each static pod and will restart if failed 
+
+How does the kubelet know what pods to create? 
+- you specify a directory for the staticPodManifests when configuring the kubelet 
+- put the manifests in that file and they will be recognized by the kubelet 
+
+Configuring the designated folder 
+- passed into the kubelet config 
+- "--pod-manifest-path="
+
+- create a file called kubeconfig.yaml 
+- start the kubelet service with the "--config=kubeconfig.yml" argument
+- inside kubeconfig.yml set the following "staticPodPath: /file/path"
+
+why would you use static pods 
+- deploy the control plane components 
+- ex: api-server, etcd, controller-manager 
+- you dont have to download binaries, configure services and worry about them crashing
+- since it's a static pod, the kubelet will restart the services (you must configure the kubelet first)
+- this is how the kubeadm tool works 
+
+How to identify static pods?
+- static pod names will always be appended with the node that its placed on
+ex: "core-dns-controlplane"
+
+## multiple schedulers
+- you can write your own scheduler if you need some other logic or checks in place before your pods get placed on nodes
+- you can have more than one scheduler at a time 
+- schedulers must have different names
+
+deploy an additional scheduler 
+
+```
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: mycustomScheduler
+  namespace: kube-system
+spec:
+  containers:
+    - name: kube-scheduler
+      image: k8s.grc.io/kube-scheduler-amd64
+      command:
+        - kube-scheduler
+        - --address=127.0.0.1
+        - --kubeconfig=/etc/kubernetes/scheduler.conf
+        - --config=/etc/kubernetes/my-scheduler-config.yaml
+```
+
+leaderElect option:
+  - if youre running multiple copies of the kubescheduler at once, if youre running multiple masters for HA 
+
+how to use a new scheduler in a pod 
+
+```
+spec:
+  container:
+    - name:
+      image:
+  schedulerName: 
+```
