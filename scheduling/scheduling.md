@@ -280,3 +280,25 @@ spec:
       image:
   schedulerName: 
 ```
+
+## Configuring Scheduler Profiles 
+
+Scheduling Queue: 
+  Scheduling plugins: sorts the pods in order based on the priority 
+
+Filtering:
+  NodeResourcesFit: filters nodes that dont have sufficient resources
+  NodeName
+  NodeUnschedulable
+
+Scoring: 
+  NodeResourcesFit: scores each node that is available 
+  ImageLocality: high score goes to the nodes that already have the pod image 
+
+Binding: 
+  DefaultBinder: provides the binding mechanism 
+
+Extension Points:
+  - each stage there is an extension point where plugins can be plugged into 
+  - there are extensions before and after the filter / score / and binding phase 
+  
