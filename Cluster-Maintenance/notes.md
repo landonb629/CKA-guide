@@ -129,7 +129,18 @@ ETCD cluster
 - you can backup that directory 
 - etcd comes with a backup snapshot utility 
 
-``` ETCDCTL_API=3 etcdctl snapshot save snapshot.db ``` 
+Finding information that you need to take a snapshot
+
+1. find the etcd pod in the cluster
+``` k get pods --all-namespaces ```
+
+2. get the cacert, cert, and key file location 
+
+``` k describe pod $ETCDPOD -n kube-system ``` 
+
+3. take the snapshot
+
+``` ETCDCTL_API=3 --endpoints https://127.0.0.1:2379 --cacert=/location/to/ca.crt --cert=/location/to/cert.crt --key /location/to/server.key snapshot save snapshot.db ``` 
 
 view the snapshot status -> use the etcdctl status command 
 
@@ -152,3 +163,4 @@ restore the cluster from the backup
 ``` service etcd restart ``` 
 
 **NOTE: when running etcdctl, you must specify the configuration for certificates, and keys, and the endpoints where etcd server is listening**
+

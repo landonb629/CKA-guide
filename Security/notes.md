@@ -1,0 +1,210 @@
+# Kubernetes Security
+
+### Security Primitives 
+
+Secure Hosts:
+ - you must secure the underlying hosts to your kubernetes cluster 
+
+kube-apiserver:
+  - you can perform almost any operation on the kube-apiserver, this is the first line of defense
+  - you need to make sure to control access to the kube-apiserver with authentication / authorization
+
+authentication mechanisms:
+- useranme / password files 
+- username / token files
+- Certificates 
+- LDAP providers 
+- service accounts ( for machines )
+
+Authorization mechanisms:
+- RBAC authorization
+- ABAC authorization 
+- node authorization
+- webhooks 
+
+
+TLS certificats:
+- used for authentication between the different kubernetes architecture components 
+
+Network policies:
+- used for securing communication between the workloads running on kubernetes
+
+
+### Authentication 
+
+Users - people who need access to the kubernetes cluster 
+Service Accounts - internal bots or workloads that need to perform actions on the cluster or get information from the cluster
+
+You cannot create users in Kubernetes but you can create service accounts
+
+
+Users:
+- all user requests managed through the kube-apiserver
+
+  what are the method for authenticating to the kube-apiserver?
+  - static password file 
+  - static token file 
+  - certificates 
+  - identity services 
+
+Static password / token files 
+- you can create a csv file with three columns (password, username, userid) you can add a 4th column of group, then pass this as an argument to the kube-apiserver configuration 
+
+``` --basic-auth-file=user-details.csv ``` 
+- you must restart the kube-apiserver afterwards
+
+Making a request to the kube-apiserver with basic authentication
+
+``` curl -v -k https://master-node-ip:6443/api/v1/pods -u "user1:password1" ```  
+
+
+### Basics of TLS certificates 
+
+Certificate: ensure trust between two parties during communication 
+  - certificates provide encryption that allows us to be safe from man-in-the-middle attacks 
+  - asymmetric encryption: pair of keys is used to encrypt the data 
+
+        private key: you keep this to yourself, this is the only thing that can decrypt things encrypted with your public key
+
+        public key: anyone can access this key, used to encrypt the data that only you can decrypt with the private key
+
+Certificate Authority: an issuer that validates your certificate to be valid. 
+
+How does this process work? (public infrastructure)
+ - generate a CSR ( certificate signing request )
+ ex: ``` openssl req -new -key test.key -out test.csr -subj "/C=US/O=test.org" ``` 
+ - the CA makes sure this is legit and they sign your certificate 
+ - CA's have public and private key pairs, they use their private keys to sign, the public keys are built into the browsers, so they will be able to validate 
+
+  
+### TLS Certificates in Kubernetes
+
+Public keys: usually .crt or .pem 
+Private keys: usually .key -key.pem
+
+- K8s clusters consist of master and worker nodes, the commmunication between them needs to be encrypted and secured 
+- server certificates are used for inter-cluster communication between the different components 
+- client certificates are used for users / external processes talking to the cluster
+
+Server certificates for servers
+- **kube-apiserver**: we need to generate a certificate for this componenet 
+    ex: apiserver.crt and apiserver.key 
+- **etcd-server**: stores all the information about a cluster 
+    ex: ectdserver.crt and etcdserver.key
+- **kubelet services**: these expose an HTTPS endpoint on the worker nodes that the kube-apiserver talks to 
+    ex: kubelet.crt and kubelet.key 
+
+Client Certificates for clients
+- **admin**: authenticate to the kube-apiserver for administration
+    ex: admin.crt and admin.key 
+- **kube-scheduler**: talks to the kube-apiserver to look for pods that require scheduling, this is a client that accesses the kube-apiserver
+    ex: scheduler.crt and scheduler.key
+- **kube-controller-manager**: daemon that acts as a continuous loop in a kubernetes cluster. monitors the current state of the cluster via calls made to the API server 
+- **kube-proxy**: network proxy that runs on each node in your cluster, this allows network communication to your pods from network sessions inside or outside your cluster
+
+outlier:
+- **kube-apiserver**: this component will talk with ETCD server, so ETCD views this as a client, you can generate new certificates for this communication, or use the current certificates 
+
+We will need a certificate authority for our cluster to sign all of these certficiates, we will have one CA 
+ex: ca.cert and ca.key
+
+### Certificate Generation 
+
+we are going to use OPENSSL, now we are going to generate our keys 
+
+``` openssl genrsa -out ca.key 2048 ``` 
+
+certificate signing request 
+
+``` openssl req -new ca.key -subj "/CN=KUBERNETES-CA" -out ca.csr ``` 
+
+sign certificates 
+
+``` openssl x509 -req -in ca.csr -signkey ca.key -out ca.cert ``` 
+
+
+### Generate client certificates for the admin 
+
+Generate the key
+
+``` openssl genrsa -out admin.key 2048 ``` 
+
+generate the CSR 
+
+``` openssl req -new -key admin.key -subj "/CN=kube-admin/O=system:masters" -out admin.csr ``` 
+
+sign certificates 
+
+``` openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -out admin.crt ``` 
+
+
+We follow the same pattern for the other components
+
+Client certificates:
+
+Scheduler: certificate names must be prefixed with the word "system"
+controller-manager: must be prefixed with keyword "system"
+kube-proxy: must be prefixed with keyword "system"
+
+Server certificates: 
+- etcd: generate a certificate called etcdserver.crt, you must also generate another peer certificates when deploying ETCD in an HA setup across multiple nodes in a cluster
+    - when enabling etcd, you must provide the following configuration options
+
+    ```
+    --key-file
+    --cert-file
+    --peer-cert-file
+    --peer-client-cert
+    --peer-key-file
+    --peer-trusted-ca-file
+    --trusted-ca-file #this is the certificate authority file 
+    ```
+
+- kube-apiserver: we need to generate a certificate called apiserver.crt and apiserver.key, all operations go through the kube-apiserver, this can be called kubernetes, kubernetes.defualt, or kubernetes.defualt.svc.cluster.local, so all these names need to be present in the certificate file 
+
+in the csr, you need to create an openssl.cnf file that holds all of these different names and IP addresses
+
+example: 
+
+``` openssl -req -new -key apiserver.key -subj "/CN=kube-apiserver" -out apiserver.csr -config openssl.cnf ```
+
+``` 
+[req]
+req_extensions = v3_req
+distinguished_name = req_distinguished_name
+[ v3_req ]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation,
+subjectAltName = @alt_names
+[alt_names]
+DNS.1 = kubernetes 
+DNS.2 = kubernetes.default 
+DNS.3 = kubernetes.default.svc 
+DNS.4 = kubernetes.default.svc.cluster.local
+IP.1 = 10.96.0.1
+IP.2 = 172.17.0.87 
+```
+
+``` openssl x509 -req -in apiserver.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out apiserver.crt -extensions v3_req -extfile openssl.cnf -days 1000 ``` 
+
+files that are needed when configuring the kube-apiserver service
+
+```
+--etcd-cafile
+--etcd-certfile
+--etcd-keyfile
+--kubelet-certificate-authority
+--kubelet-client-certificate
+--kubelet-client-key
+--client-ca-file=
+--tls-cert-file
+--tls-private-key
+```
+
+- kubelet server: installed on worker nodes, this is where the kube-apiserver talks with the node, you need a keypair for each node in the cluster (node01.crt / node01.key), kubelet also needs client certificate to authenticate to the kube-apiserver (system:node:node01) and the nodes need to be in a group called system:nodes
+
+
+
+How do you use these certificates? 
+- move them all into a kubeconfig file 
+- use them when making API requests 
