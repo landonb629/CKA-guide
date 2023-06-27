@@ -208,3 +208,72 @@ files that are needed when configuring the kube-apiserver service
 How do you use these certificates? 
 - move them all into a kubeconfig file 
 - use them when making API requests 
+
+
+#### How to view certs in an existing cluster?
+- first, it's important to now how the cluster was configured 
+
+"the hard way"
+- all the kubernetes components are configured as services
+
+
+kubeadm
+- all the kubernetes cluster components are configured as 
+
+1. start by gathering the location and name of all the certficiates 
+2. look inside each certificate 
+    ``` openssl x509 -in /cert/path/apiserver.crt -text -noout ``` 
+3. find the subject names, alternative names, and the organization, and expiration
+    - the certificate requirements are specified in the kubernetes documentation
+4. if using kubeadm you can read through the logs with docker logs 
+
+
+
+#### Certificate API 
+- kubernetes has a builtin certificates API, you can send a CSR directly to kubernetes 
+- all CSR's can be seen by all admins in the cluster, you use kubernetes commands to approve 
+
+
+How does it work?
+
+1. user generates a key 
+
+``` openssl genrsa -out test.key 2048 ``` 
+
+2. user generates a certificate signing request 
+
+``` openssl req -new -key test.key -subj "/CN=user" -out test.csr ``` 
+
+3. admin creates a csr object using a manifest file in kubernetes 
+
+``` 
+apiVersion: certificates.k8s.io/v1beta1
+kind: CertficiateSigningRequest
+metadata:
+  name: user
+spec: 
+  groups:
+    - system:authenticated
+  usages:
+    - digital signature
+    - key encipherment 
+    - server auth 
+  request: 
+    // cat test.csr | base64 | tr -d "\n" 
+
+    base64 encoded values 
+``` 
+
+4. approve the cert 
+
+``` kubectl certificate approve user ``` 
+
+5. share the generated cert with the user 
+
+``` kubectl get csr user -o yaml ``` 
+
+- copy the certificate 
+
+``` echo "cert" | base64 --decode ```
+
+
