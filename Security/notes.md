@@ -277,3 +277,136 @@ spec:
 ``` echo "cert" | base64 --decode ```
 
 
+#### Kubeconfig
+
+what makes up the kubeconfig file?
+- clusters: could be dev, production, or a cloud provider
+- contexts: define which user accesses which cluster
+- users: defines what users are going to be used 
+
+
+kubeconfig file is in a yaml format 
+
+```
+apiVersion: v1 
+kind: Config
+
+clusters:
+
+contexts:
+
+users:
+
+```
+
+- viewing the kubeconfig information 
+
+``` kubectl config view ``` 
+
+- how to update the context you're using 
+
+``` kubectl config use-context prod-user@production ``` 
+
+- how to use a context in a different config file 
+
+``` kubectl config use-context test --kubeconfig=/path/to/file ``` 
+
+how to configure a context to switch to a namespace
+- specify a namespace in the kubeconfig file 
+
+Certificates in kubeConfig 
+- you can use the cert authority data field and encode the base64 values 
+
+#### API groups 
+
+There are different API endpoints that serve different purposes in k8s: 
+- /api 
+- /apis
+- /logs  
+- /version  
+- /healthz 
+- /metrics 
+
+
+Two categories of API 
+- core: core consists of all functionality for the cluster exists, configmaps, secrets, replicaSets, etc.
+- named: more organized, breaks the API functionality into smaller groups 
+    - /apps 
+      - /v1
+         - /deployments
+         - /replicasets
+         - /statefulsets
+    - /networking.k8s.io
+      - /v1
+        - /networkpolicies 
+    - /storage.k8s.io
+    - /certificates.k8s.io
+      - v1
+        - /certificatesigningrequests
+
+NOTE: 
+ - if you're going to use curl for accessing your cluster, you need to pass in the --key, --cert, and --cacert 
+ ``` curl http://localhost:6443 -k --key admin.key --cert admin.crt --cacert ca.crt ``` 
+
+ - you can also start a proxy with kubectl 
+ ``` kubectl proxy ``` 
+ - this will open up a port that will use your kubeconfig credentials, so you can curl like so 
+ ``` curl http://localhost:8001 -k ``` 
+
+
+#### Authorization 
+
+Authorization Mechanisms 
+- Node Authorizer: makes sure that nodes have the correct permissions to report the data related to pod. etc.
+- ABAC: attribute based authorization, difficult to manage, you associate a user or group directly with permissions and must restart the kube-apiserver everytime  
+- RBAC: role based access control, you create a role with the required permissions, and associate the users/groups to the role, MORE STANDARD APPROACH 
+- Webhook: outsource all authorization through external provider, using something like OPA, offloading authorization to third party 
+
+Authorization mode:
+- the mode is set on the kube-apiserver, default it's always allow 
+- when you set multiple modes, the request is passed in the order that you specified, ex: you set Node, RBAC, and Webhook to be the authorization modes on the kube-apiserver
+  - your request is first handled by the node authorizer, so it denies the request and forwards it to the next one in the chain, which is the RBAC authorizer
+
+
+#### RBAC
+- creating roles is done through the kubernetes API 
+- you then can create a roleBinding that will set who gets which Role 
+
+How do you view rbac?
+- k get roles 
+- k get rolebindings
+- k describe role $rolename
+- k describe rolebinding $rolebindingname 
+
+Check access 
+- k auth can-i create deployments
+- k auth can-i delete nodes 
+- k auth can-i create deployments --as dev-user
+- k auth can-i create pods --as dev-user
+
+
+``` 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["list", "get", "watch"]
+```
+
+```
+apiVersion: rbac.authorization.k8s.io/vi
+kind: RoleBinding
+metadata:
+  name: dev-user-binding
+subjects: -> who the role is going to be applied on 
+- kind: User
+  name: dev-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef: -> the role that we are going to apply to the subject
+  kind: Role
+  name: developer
+  apiGroup: rbac.authorization.k8s.io
+```
