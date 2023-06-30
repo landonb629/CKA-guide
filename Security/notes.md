@@ -410,3 +410,41 @@ roleRef: -> the role that we are going to apply to the subject
   name: developer
   apiGroup: rbac.authorization.k8s.io
 ```
+
+
+#### Cluster Roles
+
+resources can either be namespaced or cluster scoped
+- namespaced: resources are bound to a specific namespace 
+- cluster scoped: you cannot bind this resource to one namespace, they apply to the entire cluster, here are a few cluster scoped resources:  nodes, PV, clusterroles, clusterrolebindings, certificatesigningrequests, namespaces
+
+these operating very similar to roles, you also use a cluster role binding 
+
+
+#### Service Accounts 
+
+Service accounts in kubernetes can be used for applications, or third partys to connect to the kubernetes API 
+- you can generate tokens for your kubernetes API objects using the tokenRequestAPI, these tokens are audience bound, time bound, and object bound
+- creating a service account doesn't automatically create a secret, or a token
+
+
+creating a service account 
+
+``` kubectl create serviceaccount dev-account ``` 
+
+
+What if you are running an application that needs to authenticate to kubernetes, in kubernetes?
+- you can mount the secret token and make it available to the application as a volume, inside the pod
+- the token will already be placed inside the pod and read 
+
+the default service account:
+- automatically created in each namespace 
+- the default service account and token are automatically placed in all pods 
+
+
+#### Image Security 
+
+when working with private registries, how do we authenticate kubernetes to pull images?
+- create a secret object with the information to authenticate
+- specify the imagePullSecrets: under the containers definition in the manifest
+
