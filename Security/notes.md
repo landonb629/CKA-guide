@@ -448,3 +448,85 @@ when working with private registries, how do we authenticate kubernetes to pull 
 - create a secret object with the information to authenticate
 - specify the imagePullSecrets: under the containers definition in the manifest
 
+
+#### Security Contexts 
+- security contexts are used to define privilege and access control settings for a pod or container.
+- you can configure security contexts for an entire pod, or for a specific container
+
+
+- at the pod level
+```
+spec:
+  securityContexts:
+  containers:
+```
+
+
+- at the container level
+``` 
+spec:
+  containers:
+    - name: 
+      image:
+      securityContext:
+```
+
+#### Network Policies 
+- used to control traffic flor for layer 3 / 4.
+- allows you to specify how a pod is allowed to communicate with various network entities, these are typically different services 
+- you create network policies by identifying the entities that pod can communicate with: namespaces, pods, and IP blocks
+- you will need to create network policies for both egress and ingress 
+
+Ingress 
+- traffic inbound to the pods 
+
+Egress
+- traffic leaving the pods for return traffic
+
+Common scenario 
+- web server
+- API server
+- database server 
+
+the ingress / egress rules we are going to need are 
+
+web server: 
+- ingress port 80
+- egress port 5000 (api)
+
+api server:
+- ingress port 5000
+- egress port 3306 (database)
+
+database server:
+- ingress port 3306
+- egress port 3306
+
+
+Network security in kubernetes 
+- k8s is configured with an allow all by default 
+- example of a network policy 
+
+
+```
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: api-pod
+    ports:
+      - protocol: TCP
+        port: 3306
+```
+
+
