@@ -114,3 +114,104 @@ ex: you have a service called web in the frontend namespace ``` http://web.front
 all of the records in kubernetes DNS are grouped into a namespace, type, and root 
 
 ex: web-service.apps.svc.cluster.local
+
+
+#### CoreDNS in Kubernetes 
+- CoreDNS server is deployed as a pod in the kube-system namespaces in the kubernetes cluster (2 pods in a replicaSet)
+- these pods run the coredns executable, that requires a configuration file
+- you use plugins in this file, example below
+- the kubernetes plugin is used for configuring the root domain name 
+- the config file that is passed to coredns is passed in as a config map 
+- the pods will use a service to resolve, this is configured as the nameserver in each pod
+
+```
+.:53 { 
+    errors
+    kubernetes cluster.local in-addr.arpa ip6.arpa { 
+        pods insecure
+        upstream 
+        fallthrough in-addr.arpa ip6.arpa
+    }
+    prometheus :9153
+    proxy . /etc/resolv.conf 
+    cache 30 
+    reload
+}
+
+```
+
+#### Ingress 
+- when doing ingress, you need to deploy a solution like nginx, traefik, HAProxy to handle the routing (ingress controller)
+- you create your rules for routing, that are then applied by the proxies deployed throughout the cluster
+
+Ingress Controller 
+- you don't have one deployed by default 
+- you can install the nginx ingress controller using a helm chart
+- if you want to install the ingress controller manually
+    - you will need a deployment manifest, with arguments, and you will need to pass in a config map, and a service
+examples: 
+  - nginx, istio, contour, HAProxy, istio 
+
+
+Ingress resources 
+
+- you can configure path based routing, or host name based routing 
+- ingress resources can be used to route to different services for different paths in an application
+- you should also deploy a default service
+
+```
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /dev
+        pathType: Prefix
+        backend:
+          service:
+            name: dev-service
+            port:
+              number: 80
+      - path: /prod
+        pathType: Prefix
+        backend:
+          service:
+            name: prod-service
+            port:
+              number: 80
+```
+
+Ingress - Annotations and rewrite-target
+
+example: you have a dev server and a prod server 
+- http://dev-service/$port
+- http://prod-service/$port 
+
+what are we trying to achieve? 
+- when a user visits this url http://ingress-service:ingress-port/dev-service they are forwarded to http://dev-service:$port 
+
+without the rewrite target option, this would happen
+
+- http://ingress-service:ingress-port/dev-service -> http://dev-service:$port/dev-service
+
+This would cause errors because the backend service is looking for the path to be / not /dev-service
+
+the fix for this is to use the rewrite URL, when the request is passed on to the dev-service or prod-service.
+ 
+example: 
+
+```
+apiVersions: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rewrite-test
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+```
+
+
+
+
